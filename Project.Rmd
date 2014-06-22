@@ -1,0 +1,60 @@
+Practical Machine Learning - Course Project
+========================================================
+
+Based on the work documented in Velloso et al. 2013, "Qualitative Activity Recognition of Weight Lifting Exercises", a dataset composed of IMU sensor readings installed in belt, glove, arm-band and dumbbell used by weightlifters were used try to identify mistakes in exercises previously modeled. The goal was to assess whether it was possible to detect mistakes in weight-lifting exercises by using activity recognition techniques. 
+
+For data recording 9 degrees of freedom Razor inertial measurement units (IMU) were used, which provide three-axes acceleration, gyroscope and magnetometer data at a joint sampling rate of 45 Hz. The resulting training dataset has 19622 observations in 160 variables. The test data set has a similar structure, except for the classification variable, and 20 observations.
+
+```{r}
+library("caret")
+# Read train data
+training = read.csv("pml-training.csv")
+dim(training)
+
+# Read test data
+testing = read.csv("pml-testing.csv")
+dim(testing)
+
+```
+
+In a initial exploratory analysis of the training data, it was identified that 34 of the variables were identified as factors, basically due to the presence of strings presumably caused by readings errors (e.g. "#DIV/0!").
+
+```{r}
+# Example of variable considered a factor, with spurious data:
+str(training$max_yaw_belt)
+```
+
+In the set of the remaining 119 variables represented as numeric and suitable to be used, the approach of PCA (Principal Component Analysis) was used, trying to reduce the dimensionality of the variable dataset.
+
+```{r}
+# Removing the variables related to indexes, name of test subjet, timestamps and similar.
+trainingSubset = training[,8:160]
+
+# Identifying the non numeric variables
+logicalIndex = c()
+for (i in 1:ncol(trainingSubset)){
+      logicalIndex = c(logicalIndex, is.numeric(trainingSubset[,i]))
+}
+
+trainingSubset = trainingSubset[logicalIndex]
+
+# Applying PCA to the remaining subset
+pcaData = prcomp(na.omit(trainingSubset))
+
+```
+
+In the summary of pcaData, shown below, it is possible to see that the first 5 components are responsible for more than 95% of the variation in the sample. 
+
+```{r}
+summary(pcaData)
+```
+
+A second approach was used, by referencing to the original paper and the feature selection made, in which 17 variables were chosen by using the feature selection algorithm based on correlation proposed by Hall in his PhD thesis "Correlation-based Feature Subset Selection for Machine Learning". In the belt, were selected the mean and variance of the roll, maximum, range and variance of the accelerometer vector, variance of the gyro and variance of the magnetometer. In the arm, the variance of the accelerometer vector and the maximum and minimum of the magnetometer were selected. In the dumbbell, the selected features were the maximum of the acceleration, variance of the gyro and maximum and minimum of the magnetometer, while in the glove, the sum of the pitch and the maximum and minimum of the gyro were selected.
+
+Based on this variables, a Random Forest approach was used, as below:
+
+```{r}
+modelFit = train(classe ~ avg_roll_belt + var_roll_belt + total_accel_belt + var_total_accel_belt, data=training)
+```
+
+
